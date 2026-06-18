@@ -27,7 +27,11 @@ const app = express();
 // ===== PORT =====
 const PORT = process.env.PORT || 5000;
 
-// ===== CORS - Allow all origins (for Render) =====
+// ===== TRUST PROXY - FIX FOR RENDER =====
+// This fixes the X-Forwarded-For error
+app.set('trust proxy', true);
+
+// ===== CORS =====
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -44,7 +48,7 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ===== RATE LIMITING =====
+// ===== RATE LIMITING - FIXED =====
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 1000, // 1000 requests per minute
@@ -54,6 +58,14 @@ const limiter = rateLimit({
   },
   skip: (req) => {
     return req.path === '/health';
+  },
+  // ✅ FIX: Disable X-Forwarded-For validation
+  validate: {
+    xForwardedForHeader: false,
+  },
+  // ✅ FIX: Use simple IP detection
+  keyGenerator: (req) => {
+    return req.ip || req.connection.remoteAddress || 'unknown';
   }
 });
 app.use('/api', limiter);
@@ -88,7 +100,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// ===== HEALTH CHECK (also available as separate route) =====
+// ===== HEALTH CHECK =====
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -129,7 +141,7 @@ const server = app.listen(PORT, () => {
 // ===== GRACEFUL SHUTDOWN =====
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received. Shutting down gracefully...');
-  console.log('Powered by Nwali Grant 💥');
+  console.log('💡 Note: SIGTERM is sent by Render when the server is being stopped or redeployed.');
   server.close(() => {
     console.log('🔌 Server closed');
     process.exit(0);
@@ -138,7 +150,8 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   console.log('🛑 SIGINT received. Shutting down gracefully...');
-  console.log('Powered by Nwali Grant 💥');
+  console.log('💡 Note: SIGINT is sent when you press Ctrl+C in the terminal.');
+  
   server.close(() => {
     console.log('🔌 Server closed');
     process.exit(0);
