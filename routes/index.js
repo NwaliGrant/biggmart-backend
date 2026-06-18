@@ -13,13 +13,7 @@ const heroRoutes = require('./api/hero');
 const testimonialRoutes = require('./api/testimonials');
 const statsRoutes = require('./api/stats');
 
-// ======================= API ROUTES =======================
-
-/**
- * Health check endpoint
- * @route   GET /api/health
- * @access  Public
- */
+// ===== HEALTH CHECK ROUTE =====
 router.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -29,26 +23,28 @@ router.get('/health', (req, res) => {
   });
 });
 
-/**
- * API version endpoint
- * @route   GET /api/version
- * @access  Public
- */
-router.get('/version', (req, res) => {
-  res.json({
-    success: true,
-    version: '1.0.0',
-    name: 'The BiggMart API'
-  });
-});
-
-// ======================= MOUNT ROUTES =======================
-
-// Mount all API routes under /api
+// ===== MOUNT ALL ROUTES =====
 router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
 router.use('/hero', heroRoutes);
 router.use('/testimonials', testimonialRoutes);
 router.use('/stats', statsRoutes);
+
+// ===== TEST ROUTE =====
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===== 404 HANDLER FOR API =====
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found in API`
+  });
+});
 
 module.exports = router;

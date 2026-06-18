@@ -70,7 +70,7 @@ createUploadDirs();
 // ===== ROUTES =====
 app.use('/api', routes);
 
-// Welcome route
+// ===== WELCOME ROUTE =====
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -88,6 +88,16 @@ app.get('/', (req, res) => {
   });
 });
 
+// ===== HEALTH CHECK (also available as separate route) =====
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // ===== ERROR HANDLING =====
 app.use(notFound);
 app.use(errorHandler);
@@ -102,6 +112,8 @@ const server = app.listen(PORT, () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('='.repeat(50));
   console.log('📋 Available Endpoints:');
+  console.log(`  GET  / - Welcome message`);
+  console.log(`  GET  /health - Health check`);
   console.log(`  GET  /api/health - Health check`);
   console.log(`  POST /api/auth/login - Admin login`);
   console.log(`  GET  /api/products - Get all products`);
