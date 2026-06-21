@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../../middleware/auth');
-const { uploadSingle } = require('../../middleware/upload');
+const { upload } = require('../../config/cloudinary'); // ✅ Cloudinary
 const { validateHero } = require('../../middleware/validation');
 const {
   getHeroImages,
@@ -42,7 +42,7 @@ router.get('/:id', getHeroImage);
 router.post(
   '/', 
   protect, 
-  uploadSingle('image'), 
+  upload.single('image'), // ✅ Cloudinary upload
   validateHero, 
   createHeroImage
 );
@@ -55,7 +55,7 @@ router.post(
 router.put(
   '/:id', 
   protect, 
-  uploadSingle('image'), 
+  upload.single('image'), // ✅ Cloudinary upload
   validateHero, 
   updateHeroImage
 );

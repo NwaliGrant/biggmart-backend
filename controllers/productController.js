@@ -1,12 +1,11 @@
 /**
  * PRODUCT CONTROLLER
- * Handles product CRUD operations
+ * Handles product CRUD operations with Cloudinary
  */
 
 const Product = require('../models/Product');
 const Stats = require('../models/Stats');
-const fs = require('fs');
-const path = require('path');
+const { deleteImage, getPublicIdFromUrl } = require('../config/cloudinary');
 
 /**
  * Get all products
@@ -25,12 +24,7 @@ const getProducts = async (req, res) => {
       products = await Product.getAll();
     }
     
-    // Add full URL for images
-    products = products.map(p => ({
-      ...p.toObject(),
-      image_url: p.image_url ? `${req.protocol}://${req.get('host')}${p.image_url}` : null
-    }));
-    
+    // Products already have full Cloudinary URLs
     res.json({
       success: true,
       count: products.length,
@@ -59,12 +53,9 @@ const getProduct = async (req, res) => {
       });
     }
     
-    const productData = product.toObject();
-    productData.image_url = productData.image_url ? `${req.protocol}://${req.get('host')}${productData.image_url}` : null;
-    
     res.json({
       success: true,
-      data: productData
+      data: product
     });
   } catch (error) {
     console.error('Get product error:', error);
@@ -90,10 +81,10 @@ const createProduct = async (req, res) => {
       });
     }
     
-    // Handle image upload
+    // ✅ Get image URL from Cloudinary
     let image_url = null;
     if (req.file) {
-      image_url = `/uploads/products/${req.file.filename}`;
+      image_url = req.file.path; // Cloudinary returns the full URL
     }
     
     const productData = {
@@ -142,16 +133,16 @@ const updateProduct = async (req, res) => {
     
     let image_url = product.image_url;
     
-    // Handle image upload
+    // ✅ Handle Cloudinary image upload
     if (req.file) {
-      // Delete old image if exists
+      // Delete old image from Cloudinary if exists
       if (product.image_url) {
-        const oldPath = path.join(__dirname, '..', product.image_url);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
+        const publicId = getPublicIdFromUrl(product.image_url);
+        if (publicId) {
+          await deleteImage(publicId);
         }
       }
-      image_url = `/uploads/products/${req.file.filename}`;
+      image_url = req.file.path; // New Cloudinary URL
     }
     
     const updateData = {
@@ -200,11 +191,11 @@ const deleteProduct = async (req, res) => {
       });
     }
     
-    // Delete image if exists
+    // ✅ Delete image from Cloudinary if exists
     if (product.image_url) {
-      const imagePath = path.join(__dirname, '..', product.image_url);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+      const publicId = getPublicIdFromUrl(product.image_url);
+      if (publicId) {
+        await deleteImage(publicId);
       }
     }
     

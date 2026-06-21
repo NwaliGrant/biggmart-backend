@@ -1,11 +1,10 @@
 /**
  * HERO CONTROLLER
- * Handles hero image CRUD operations
+ * Handles hero image CRUD operations with Cloudinary
  */
 
 const Hero = require('../models/Hero');
-const fs = require('fs');
-const path = require('path');
+const { deleteImage, getPublicIdFromUrl } = require('../config/cloudinary');
 
 /**
  * Get all hero images
@@ -22,12 +21,7 @@ const getHeroImages = async (req, res) => {
       images = await Hero.getAll();
     }
     
-    // Add full URL for images
-    images = images.map(img => ({
-      ...img.toObject(),
-      image_url: `${req.protocol}://${req.get('host')}${img.image_url}`
-    }));
-    
+    // Images already have full Cloudinary URLs
     res.json({
       success: true,
       count: images.length,
@@ -56,12 +50,9 @@ const getHeroImage = async (req, res) => {
       });
     }
     
-    const imageData = image.toObject();
-    imageData.image_url = `${req.protocol}://${req.get('host')}${imageData.image_url}`;
-    
     res.json({
       success: true,
-      data: imageData
+      data: image
     });
   } catch (error) {
     console.error('Get hero image error:', error);
@@ -87,7 +78,8 @@ const createHeroImage = async (req, res) => {
       });
     }
     
-    const image_url = `/uploads/hero/${req.file.filename}`;
+    // ✅ Get image URL from Cloudinary
+    const image_url = req.file.path;
     
     const imageData = {
       image_url,
@@ -131,16 +123,16 @@ const updateHeroImage = async (req, res) => {
     
     let image_url = image.image_url;
     
-    // Handle image upload
+    // ✅ Handle Cloudinary image upload
     if (req.file) {
-      // Delete old image
+      // Delete old image from Cloudinary if exists
       if (image.image_url) {
-        const oldPath = path.join(__dirname, '..', image.image_url);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
+        const publicId = getPublicIdFromUrl(image.image_url);
+        if (publicId) {
+          await deleteImage(publicId);
         }
       }
-      image_url = `/uploads/hero/${req.file.filename}`;
+      image_url = req.file.path; // New Cloudinary URL
     }
     
     const updateData = {
@@ -185,11 +177,11 @@ const deleteHeroImage = async (req, res) => {
       });
     }
     
-    // Delete image file
+    // ✅ Delete image from Cloudinary if exists
     if (image.image_url) {
-      const imagePath = path.join(__dirname, '..', image.image_url);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+      const publicId = getPublicIdFromUrl(image.image_url);
+      if (publicId) {
+        await deleteImage(publicId);
       }
     }
     
