@@ -1,78 +1,31 @@
 /**
- * PRODUCT ROUTES
- * Product management endpoints
+ * PRODUCT ROUTES - SIMPLIFIED
+ * Single image only, no carousel
  */
 
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../../middleware/auth');
-const { upload } = require('../../config/cloudinary'); // ✅ Cloudinary
-const { validateProduct } = require('../../middleware/validation');
+const { upload } = require('../../config/cloudinary');
 const {
   getProducts,
   getProduct,
   createProduct,
   updateProduct,
   deleteProduct,
-  toggleSoldOut
+  toggleSoldOut,
+  getProductStats
 } = require('../../controllers/productController');
 
-// ======================= PUBLIC ROUTES =======================
-
-/**
- * @route   GET /api/products
- * @desc    Get all products (with filters)
- * @access  Public
- */
+// ===== PUBLIC ROUTES =====
 router.get('/', getProducts);
-
-/**
- * @route   GET /api/products/:id
- * @desc    Get single product
- * @access  Public
- */
+router.get('/stats', getProductStats);
 router.get('/:id', getProduct);
 
-// ======================= PROTECTED ROUTES (Admin Only) =======================
-
-/**
- * @route   POST /api/products
- * @desc    Create new product
- * @access  Private (Admin)
- */
-router.post(
-  '/', 
-  protect, 
-  upload.single('image'), // ✅ Cloudinary upload
-  validateProduct, 
-  createProduct
-);
-
-/**
- * @route   PUT /api/products/:id
- * @desc    Update product
- * @access  Private (Admin)
- */
-router.put(
-  '/:id', 
-  protect, 
-  upload.single('image'), // ✅ Cloudinary upload
-  validateProduct, 
-  updateProduct
-);
-
-/**
- * @route   DELETE /api/products/:id
- * @desc    Delete product
- * @access  Private (Admin)
- */
+// ===== PROTECTED ROUTES =====
+router.post('/', protect, upload.single('image'), createProduct);
+router.put('/:id', protect, upload.single('image'), updateProduct);
 router.delete('/:id', protect, deleteProduct);
-
-/**
- * @route   PATCH /api/products/:id/toggle-soldout
- * @desc    Toggle sold out status
- * @access  Private (Admin)
- */
 router.patch('/:id/toggle-soldout', protect, toggleSoldOut);
 
 module.exports = router;

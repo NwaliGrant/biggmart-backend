@@ -1,7 +1,6 @@
 /**
  * PRODUCT MODEL - MongoDB Schema
- * Collection: products
- * Handles product data for the store
+ * SIMPLIFIED: Single image only, no carousel
  */
 
 const mongoose = require('mongoose');
@@ -11,11 +10,11 @@ const ProductSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Product name is required'],
     trim: true,
-    maxlength: [200, 'Product name cannot exceed 200 characters']
+    maxlength: [100, 'Product name cannot exceed 100 characters']
   },
   category: {
     type: String,
-    enum: ['gadgets', 'electronics', 'home'],
+    enum: ['gadgets', 'electronics', 'home', 'used'],
     required: [true, 'Category is required']
   },
   description: {
@@ -56,115 +55,94 @@ const ProductSchema = new mongoose.Schema({
 });
 
 // ======================= INDEXES =======================
-
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ is_sold_out: 1 });
 ProductSchema.index({ featured: 1 });
+ProductSchema.index({ display_order: 1 });
 ProductSchema.index({ created_at: -1 });
 
 // ======================= STATIC METHODS =======================
 
-/**
- * Get all products
- * @returns {Promise<Array>} Array of products
- */
-ProductSchema.statics.getAll = async function() {
-  return this.find().sort({ created_at: -1 });
+ProductSchema.statics.getAll = async function(options = {}) {
+  const { 
+    page = 1, 
+    limit = 50, 
+    category = null, 
+    featured = null,
+    sold_out = null
+  } = options;
+  
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  
+  const filter = {};
+  if (category && category !== 'all') filter.category = category;
+  if (featured !== null) filter.featured = featured === 'true';
+  if (sold_out !== null) filter.is_sold_out = sold_out === 'true';
+  
+  const [data, total] = await Promise.all([
+    this.find(filter)
+      .sort({ display_order: 1, created_at: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
+    this.countDocuments(filter)
+  ]);
+  
+  return {
+    data,
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+    pages: Math.ceil(total / parseInt(limit))
+  };
 };
 
-/**
- * Get featured products
- * @param {number} limit - Maximum number of products
- * @returns {Promise<Array>} Array of featured products
- */
-ProductSchema.statics.getFeatured = async function(limit = 10) {
-  return this.find({ is_sold_out: false })
-    .sort({ created_at: -1 })
-    .limit(limit);
-};
-
-/**
- * Get products by category
- * @param {string} category - Category name
- * @returns {Promise<Array>} Array of products
- */
-ProductSchema.statics.getByCategory = async function(category) {
-  return this.find({ category }).sort({ created_at: -1 });
-};
-
-/**
- * Get product by ID
- * @param {string} id - Product ID
- * @returns {Promise<Object>} Product document
- */
 ProductSchema.statics.getById = async function(id) {
   return this.findById(id);
 };
 
-/**
- * Get product stats
- * @returns {Promise<Object>} Product statistics
- */
 ProductSchema.statics.getStats = async function() {
-  const total = await this.countDocuments();
-  const soldOut = await this.countDocuments({ is_sold_out: true });
-  const featured = await this.countDocuments({ featured: true });
-  return { total, soldOut, featured };
-};
-
-/**
- * Search products
- * @param {string} query - Search query
- * @returns {Promise<Array>} Matching products
- */
-ProductSchema.statics.search = async function(query) {
-  return this.find({
-    $or: [
-      { name: { $regex: query, $options: 'i' } },
-      { description: { $regex: query, $options: 'i' } }
-    ]
-  });
+  const [total, soldOut, featured] = await Promise.all([
+    this.countDocuments(),
+    this.countDocuments({ is_sold_out: true }),
+    this.countDocuments({ featured: true })
+  ]);
+  
+  const categories = await this.distinct('category');
+  const categoryCounts = {};
+  for (const cat of categories) {
+    categoryCounts[cat] = await this.countDocuments({ category: cat });
+  }
+  
+  return { total, soldOut, featured, categories: categoryCounts };
 };
 
 // ======================= INSTANCE METHODS =======================
 
-/**
- * Increment view count
- * @returns {Promise<Object>} Updated product
- */
 ProductSchema.methods.incrementViews = async function() {
-  this.view_count += 1;
+  this.view_count = (this.view_count || 0) + 1;
   return this.save();
 };
 
-/**
- * Toggle sold out status
- * @returns {Promise<Object>} Updated product
- */
 ProductSchema.methods.toggleSoldOut = async function() {
   this.is_sold_out = !this.is_sold_out;
   return this.save();
 };
 
+ProductSchema.methods.toggleFeatured = async function() {
+  this.featured = !this.featured;
+  return this.save();
+};
+
 // ======================= MIDDLEWARE =======================
 
-/**
- * Log product creation
- */
 ProductSchema.post('save', function(doc) {
-  console.log(`📦 Product created: ${doc.name} (${doc._id})`);
+  console.log(`📦 Product saved: ${doc.name} (${doc._id})`);
 });
 
-/**
- * Log product deletion
- */
 ProductSchema.post('remove', function(doc) {
   console.log(`🗑️ Product deleted: ${doc.name} (${doc._id})`);
 });
 
-/**
- * Return product without version field
- */
 ProductSchema.methods.toJSON = function() {
   const obj = this.toObject();
   delete obj.__v;

@@ -1,9 +1,6 @@
 /**
- * THE BIGGMART - EXPRESS.JS SERVER
- * ✅ CORS FIXED - Allows all origins
- * ✅ Cloudinary Integration - Permanent image storage
- * ✅ MongoDB connection with retry
- * ✅ Complete API routes
+ * THE BIGGMART - COMPLETE EXPRESS.JS SERVER
+ * SIMPLIFIED: No carousel, single image upload only
  */
 
 require('dotenv').config();
@@ -13,26 +10,31 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 
 // Import MongoDB connection
 const { connectDB } = require('./config/database');
 
 // Import routes
-const routes = require('./routes');
+const authRoutes = require('./routes/api/auth');
+const productRoutes = require('./routes/api/products');
+const heroRoutes = require('./routes/api/hero');
+const testimonialRoutes = require('./routes/api/testimonials');
+const statsRoutes = require('./routes/api/stats');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorHandler');
-
-// Import Cloudinary upload (no need for createUploadDirs)
-const { upload } = require('./config/cloudinary');
 
 // Initialize app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ======================= CORS - FULLY OPEN =======================
+// ======================= TRUST PROXY =======================
+app.set('trust proxy', true);
+
+// ======================= CORS =======================
 app.use(cors({
-  origin: '*', // Allow ALL origins (for development)
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
@@ -45,6 +47,9 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
+// Compression
+app.use(compression());
+
 // Logging
 app.use(morgan('dev'));
 
@@ -54,22 +59,21 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ======================= RATE LIMITING =======================
 const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 1000, // Allow 1000 requests per minute
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes
   message: {
     success: false,
     message: 'Too many requests, please try again later.'
   },
   skip: (req) => {
-    // Skip rate limiting for health check
-    return req.path === '/health';
-  }
+    return req.path === '/health' || req.path === '/api/health';
+  },
+  // Fix for proxy warning
+  validate: { trustProxy: false }
 });
 app.use('/api', limiter);
 
 // ======================= STATIC FILES =======================
-// Note: With Cloudinary, we don't need local uploads folder
-// But keep this for any static assets
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ======================= CONNECT DATABASE =======================
@@ -77,8 +81,12 @@ connectDB();
 
 // ======================= ROUTES =======================
 
-// Mount all API routes
-app.use('/api', routes);
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/hero', heroRoutes);
+app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {
@@ -95,6 +103,16 @@ app.get('/', (req, res) => {
       testimonials: '/api/testimonials',
       stats: '/api/stats'
     }
+  });
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
@@ -121,7 +139,10 @@ const server = app.listen(PORT, () => {
   console.log(`  GET  /api/health - Health check`);
   console.log(`  POST /api/auth/login - Admin login`);
   console.log(`  GET  /api/products - Get all products`);
+  console.log(`  GET  /api/products/:id - Get single product`);
   console.log(`  POST /api/products - Create product (Admin)`);
+  console.log(`  PUT  /api/products/:id - Update product (Admin)`);
+  console.log(`  DELETE /api/products/:id - Delete product (Admin)`);
   console.log(`  GET  /api/hero - Get hero images`);
   console.log(`  POST /api/hero - Add hero image (Admin)`);
   console.log(`  GET  /api/testimonials - Get testimonials`);
