@@ -1,6 +1,8 @@
 /**
- * PRODUCT CONTROLLER - SIMPLIFIED
- * Single image only, no carousel
+ * PRODUCT CONTROLLER - COMPLETE WORKING
+ * FIXED: Added 'used' category to validation
+ * FIXED: Better ID cleaning and error handling
+ * FIXED: Single image upload only
  */
 
 const Product = require('../models/Product');
@@ -11,8 +13,11 @@ const { deleteImage, getPublicIdFromUrl } = require('../config/cloudinary');
 // ===== HELPER: Clean Product ID =====
 function cleanProductId(id) {
     if (!id) return null;
-    if (typeof id === 'string' && id.includes(':')) {
-        id = id.split(':')[0];
+    if (typeof id === 'string') {
+        // Remove any trailing characters after colon, dot, or comma
+        id = id.split(':')[0].split('.')[0].split(',')[0];
+        // Remove any non-hex characters (for ObjectId)
+        id = id.replace(/[^a-fA-F0-9]/g, '');
     }
     return id;
 }
@@ -54,33 +59,45 @@ const getProducts = async (req, res) => {
 const getProduct = async (req, res) => {
   try {
     let { id } = req.params;
+    
+    console.log(`🔍 Fetching product with ID: ${id}`);
+    
+    // Clean the ID
     id = cleanProductId(id);
     
-    console.log(`🔍 Fetching product: ${id}`);
-    
+    // Validate ID
     if (!id || id === 'undefined' || id === 'null' || id === '') {
+      console.log('❌ Invalid ID: empty or undefined');
       return res.status(400).json({
         success: false,
         message: 'Invalid product ID provided'
       });
     }
     
+    // Check if ID is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('❌ Invalid ObjectId format:', id);
       return res.status(400).json({
         success: false,
         message: 'Invalid product ID format'
       });
     }
     
+    console.log('✅ ID validation passed, querying database...');
+    
     const product = await Product.findById(id);
     
     if (!product) {
+      console.log('❌ Product not found:', id);
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
     
+    console.log('✅ Product found:', product.name);
+    
+    // Increment view count
     product.view_count = (product.view_count || 0) + 1;
     await product.save();
     
@@ -90,6 +107,7 @@ const getProduct = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Get product error:', error.message);
+    console.error('❌ Stack trace:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch product'
@@ -110,6 +128,7 @@ const createProduct = async (req, res) => {
       });
     }
     
+    // ✅ FIXED: Added 'used' to category validation
     if (!category || !['gadgets', 'electronics', 'home', 'used'].includes(category)) {
       return res.status(400).json({
         success: false,
@@ -169,7 +188,7 @@ const createProduct = async (req, res) => {
   }
 };
 
-// ===== UPDATE PRODUCT =====
+// ===== UPDATE PRODUCT - FULLY FIXED =====
 const updateProduct = async (req, res) => {
   try {
     let { id } = req.params;
@@ -202,13 +221,49 @@ const updateProduct = async (req, res) => {
     const { name, category, price, description, is_sold_out, featured, display_order } = req.body;
     
     const updateData = {};
-    if (name !== undefined && name !== '') updateData.name = name.trim();
-    if (category !== undefined && category !== '') updateData.category = category;
-    if (price !== undefined && price !== '') updateData.price = parseFloat(price);
-    if (description !== undefined) updateData.description = description;
-    if (is_sold_out !== undefined) updateData.is_sold_out = is_sold_out === 'true';
-    if (featured !== undefined) updateData.featured = featured === 'true';
-    if (display_order !== undefined) updateData.display_order = parseInt(display_order) || 0;
+    
+    // Only update fields that are provided
+    if (name !== undefined && name !== '') {
+      updateData.name = name.trim();
+    }
+    
+    if (category !== undefined && category !== '') {
+      // ✅ FIXED: Added 'used' to category validation
+      if (!['gadgets', 'electronics', 'home', 'used'].includes(category)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid category is required (gadgets, electronics, home, used)'
+        });
+      }
+      updateData.category = category;
+    }
+    
+    if (price !== undefined && price !== '') {
+      const priceNum = parseFloat(price);
+      if (isNaN(priceNum) || priceNum < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid price is required'
+        });
+      }
+      updateData.price = priceNum;
+    }
+    
+    if (description !== undefined) {
+      updateData.description = description;
+    }
+    
+    if (is_sold_out !== undefined) {
+      updateData.is_sold_out = is_sold_out === 'true';
+    }
+    
+    if (featured !== undefined) {
+      updateData.featured = featured === 'true';
+    }
+    
+    if (display_order !== undefined) {
+      updateData.display_order = parseInt(display_order) || 0;
+    }
     
     // Handle single image update
     if (req.file) {
@@ -224,6 +279,7 @@ const updateProduct = async (req, res) => {
       console.log(`📸 Updated image: ${req.file.path}`);
     }
     
+    // Check if there's anything to update
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
         success: false,
@@ -352,6 +408,51 @@ const toggleSoldOut = async (req, res) => {
   }
 };
 
+// ===== TOGGLE FEATURED =====
+const toggleFeatured = async (req, res) => {
+  try {
+    let { id } = req.params;
+    id = cleanProductId(id);
+    
+    if (!id || id === 'undefined' || id === 'null' || id === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product ID provided'
+      });
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product ID format'
+      });
+    }
+    
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    
+    product.featured = !product.featured;
+    await product.save();
+    
+    res.json({
+      success: true,
+      message: `Product ${product.featured ? 'featured' : 'unfeatured'}`,
+      featured: product.featured
+    });
+  } catch (error) {
+    console.error('Toggle featured error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update product featured status'
+    });
+  }
+};
+
 // ===== GET PRODUCT STATS =====
 const getProductStats = async (req, res) => {
   try {
@@ -409,5 +510,6 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
-  toggleSoldOut
+  toggleSoldOut,
+  toggleFeatured
 };
