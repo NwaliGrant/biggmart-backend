@@ -5,31 +5,18 @@
 
 const jwt = require('jsonwebtoken');
 
-/**
- * Protect middleware - Verifies JWT token
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
- */
 const protect = async (req, res, next) => {
   let token;
 
-  // Check for token in Authorization header
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
-      // Get token from header
       token = req.headers.authorization.split(' ')[1];
-
-      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Attach user to request
       req.user = {
         id: decoded.id,
         username: decoded.username,
         role: decoded.role
       };
-
       next();
     } catch (error) {
       console.error('Auth error:', error);
@@ -63,12 +50,6 @@ const protect = async (req, res, next) => {
   }
 };
 
-/**
- * Admin middleware - Checks if user is admin
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
- */
 const isAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     next();
@@ -80,12 +61,6 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-/**
- * Optional Auth middleware - Verifies token if present
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
- */
 const optionalAuth = async (req, res, next) => {
   let token;
 

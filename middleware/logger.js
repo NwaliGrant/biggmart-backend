@@ -6,18 +6,11 @@
 const fs = require('fs');
 const path = require('path');
 
-// Ensure logs directory exists
 const logsDir = './logs';
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-/**
- * Create a log entry
- * @param {string} level - Log level (info, warn, error)
- * @param {string} message - Log message
- * @param {Object} data - Additional data to log
- */
 const createLog = (level, message, data = {}) => {
   const timestamp = new Date().toISOString();
   const logEntry = {
@@ -27,35 +20,28 @@ const createLog = (level, message, data = {}) => {
     ...data
   };
   
-  // Log to console
   const coloredLevel = {
-    info: '\x1b[36m%s\x1b[0m', // Cyan
-    warn: '\x1b[33m%s\x1b[0m', // Yellow
-    error: '\x1b[31m%s\x1b[0m' // Red
+    info: '\x1b[36m%s\x1b[0m',
+    warn: '\x1b[33m%s\x1b[0m',
+    error: '\x1b[31m%s\x1b[0m'
   }[level] || '%s';
   
   console.log(coloredLevel, `[${timestamp}] ${level.toUpperCase()}: ${message}`);
   
-  // Log to file
   const logFile = path.join(logsDir, `${new Date().toISOString().split('T')[0]}.log`);
   const logString = JSON.stringify(logEntry) + '\n';
   fs.appendFileSync(logFile, logString);
 };
 
-/**
- * Request logger middleware
- */
 const requestLogger = (req, res, next) => {
   const startTime = Date.now();
   
-  // Log request
   createLog('info', `${req.method} ${req.originalUrl}`, {
     ip: req.ip || req.connection.remoteAddress,
     userAgent: req.get('user-agent'),
     body: req.method !== 'GET' ? req.body : undefined
   });
   
-  // Log response
   res.on('finish', () => {
     const duration = Date.now() - startTime;
     const level = res.statusCode >= 400 ? 'error' : 'info';
@@ -70,9 +56,6 @@ const requestLogger = (req, res, next) => {
   next();
 };
 
-/**
- * Error logger
- */
 const errorLogger = (err, req, res, next) => {
   createLog('error', err.message, {
     stack: err.stack,
@@ -84,9 +67,6 @@ const errorLogger = (err, req, res, next) => {
   next(err);
 };
 
-/**
- * API performance logger
- */
 const performanceLogger = (req, res, next) => {
   const start = process.hrtime();
   

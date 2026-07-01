@@ -3,9 +3,6 @@
  * Request data validation for API endpoints
  */
 
-/**
- * Validate product data
- */
 const validateProduct = (req, res, next) => {
   const { name, category, price } = req.body;
   
@@ -16,10 +13,10 @@ const validateProduct = (req, res, next) => {
     });
   }
   
-  if (!category || !['gadgets', 'electronics', 'home'].includes(category)) {
+  if (!category || !['gadgets', 'electronics', 'home', 'used'].includes(category)) {
     return res.status(400).json({
       success: false,
-      message: 'Valid category is required (gadgets, electronics, home)'
+      message: 'Valid category is required (gadgets, electronics, home, used)'
     });
   }
   
@@ -33,9 +30,6 @@ const validateProduct = (req, res, next) => {
   next();
 };
 
-/**
- * Validate testimonial data
- */
 const validateTestimonial = (req, res, next) => {
   const { customer_name, content, rating } = req.body;
   
@@ -63,9 +57,6 @@ const validateTestimonial = (req, res, next) => {
   next();
 };
 
-/**
- * Validate hero image data
- */
 const validateHero = (req, res, next) => {
   if (!req.file && !req.body.image_url) {
     return res.status(400).json({
@@ -77,9 +68,6 @@ const validateHero = (req, res, next) => {
   next();
 };
 
-/**
- * Validate login data
- */
 const validateLogin = (req, res, next) => {
   const { username, password } = req.body;
   
@@ -100,11 +88,6 @@ const validateLogin = (req, res, next) => {
   next();
 };
 
-/**
- * Sanitize input data (remove XSS)
- * @param {Object} data - Data to sanitize
- * @returns {Object} Sanitized data
- */
 const sanitizeInput = (data) => {
   if (!data) return data;
   
@@ -129,45 +112,11 @@ const sanitizeInput = (data) => {
   return data;
 };
 
-/**
- * Sanitize request body middleware
- */
 const sanitizeBody = (req, res, next) => {
   if (req.body) {
     req.body = sanitizeInput(req.body);
   }
   next();
-};
-
-/**
- * Rate limiting middleware (simplified)
- */
-const rateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
-  const requests = new Map();
-  
-  return (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
-    
-    if (!requests.has(ip)) {
-      requests.set(ip, []);
-    }
-    
-    const timestamps = requests.get(ip);
-    const validRequests = timestamps.filter(t => now - t < windowMs);
-    
-    if (validRequests.length >= maxRequests) {
-      return res.status(429).json({
-        success: false,
-        message: 'Too many requests. Please try again later.'
-      });
-    }
-    
-    validRequests.push(now);
-    requests.set(ip, validRequests);
-    
-    next();
-  };
 };
 
 module.exports = {
@@ -176,6 +125,5 @@ module.exports = {
   validateHero,
   validateLogin,
   sanitizeInput,
-  sanitizeBody,
-  rateLimit
+  sanitizeBody
 };

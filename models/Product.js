@@ -1,5 +1,6 @@
 /**
  * PRODUCT MODEL - MongoDB Schema
+ * SIMPLIFIED: Single image only, no carousel
  */
 
 const mongoose = require('mongoose');
@@ -13,7 +14,7 @@ const ProductSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['gadgets', 'electronics', 'home', 'used'], // ✅ Added 'used'
+    enum: ['gadgets', 'electronics', 'home', 'used'],
     required: [true, 'Category is required']
   },
   description: {

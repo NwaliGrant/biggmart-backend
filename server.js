@@ -1,6 +1,5 @@
 /**
  * THE BIGGMART - COMPLETE EXPRESS.JS SERVER
- * SIMPLIFIED: No carousel, single image upload only
  */
 
 require('dotenv').config();
@@ -68,7 +67,6 @@ const limiter = rateLimit({
   skip: (req) => {
     return req.path === '/health' || req.path === '/api/health';
   },
-  // Fix for proxy warning
   validate: { trustProxy: false }
 });
 app.use('/api', limiter);

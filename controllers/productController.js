@@ -14,9 +14,7 @@ const { deleteImage, getPublicIdFromUrl } = require('../config/cloudinary');
 function cleanProductId(id) {
     if (!id) return null;
     if (typeof id === 'string') {
-        // Remove any trailing characters after colon, dot, or comma
         id = id.split(':')[0].split('.')[0].split(',')[0];
-        // Remove any non-hex characters (for ObjectId)
         id = id.replace(/[^a-fA-F0-9]/g, '');
     }
     return id;
@@ -62,10 +60,8 @@ const getProduct = async (req, res) => {
     
     console.log(`🔍 Fetching product with ID: ${id}`);
     
-    // Clean the ID
     id = cleanProductId(id);
     
-    // Validate ID
     if (!id || id === 'undefined' || id === 'null' || id === '') {
       console.log('❌ Invalid ID: empty or undefined');
       return res.status(400).json({
@@ -74,7 +70,6 @@ const getProduct = async (req, res) => {
       });
     }
     
-    // Check if ID is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       console.log('❌ Invalid ObjectId format:', id);
       return res.status(400).json({
@@ -97,7 +92,6 @@ const getProduct = async (req, res) => {
     
     console.log('✅ Product found:', product.name);
     
-    // Increment view count
     product.view_count = (product.view_count || 0) + 1;
     await product.save();
     
@@ -128,7 +122,6 @@ const createProduct = async (req, res) => {
       });
     }
     
-    // ✅ FIXED: Added 'used' to category validation
     if (!category || !['gadgets', 'electronics', 'home', 'used'].includes(category)) {
       return res.status(400).json({
         success: false,
@@ -145,7 +138,6 @@ const createProduct = async (req, res) => {
     
     let image_url = null;
     
-    // Handle single image from Cloudinary
     if (req.file) {
       image_url = req.file.path;
       console.log(`📸 Uploaded image: ${image_url}`);
@@ -188,7 +180,7 @@ const createProduct = async (req, res) => {
   }
 };
 
-// ===== UPDATE PRODUCT - FULLY FIXED =====
+// ===== UPDATE PRODUCT =====
 const updateProduct = async (req, res) => {
   try {
     let { id } = req.params;
@@ -222,13 +214,11 @@ const updateProduct = async (req, res) => {
     
     const updateData = {};
     
-    // Only update fields that are provided
     if (name !== undefined && name !== '') {
       updateData.name = name.trim();
     }
     
     if (category !== undefined && category !== '') {
-      // ✅ FIXED: Added 'used' to category validation
       if (!['gadgets', 'electronics', 'home', 'used'].includes(category)) {
         return res.status(400).json({
           success: false,
@@ -265,9 +255,7 @@ const updateProduct = async (req, res) => {
       updateData.display_order = parseInt(display_order) || 0;
     }
     
-    // Handle single image update
     if (req.file) {
-      // Delete old image from Cloudinary
       if (product.image_url) {
         const publicId = getPublicIdFromUrl(product.image_url);
         if (publicId) {
@@ -279,7 +267,6 @@ const updateProduct = async (req, res) => {
       console.log(`📸 Updated image: ${req.file.path}`);
     }
     
-    // Check if there's anything to update
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
         success: false,
@@ -337,7 +324,6 @@ const deleteProduct = async (req, res) => {
       });
     }
     
-    // Delete image from Cloudinary
     if (product.image_url) {
       const publicId = getPublicIdFromUrl(product.image_url);
       if (publicId) {
